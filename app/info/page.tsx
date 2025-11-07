@@ -11,7 +11,8 @@ import {
   FaUsers,
   FaLightbulb,
   FaCheckCircle,
-  FaExclamationTriangle
+  FaExclamationTriangle,
+  FaMapMarkedAlt
 } from "react-icons/fa";
 
 export default function InfoPage() {
