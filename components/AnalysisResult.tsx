@@ -14,53 +14,104 @@ interface AnalysisResultProps {
 }
 
 export default function AnalysisResult({ data, industry }: AnalysisResultProps) {
-  // 종합 점수 계산
-  const calculateScore = () => {
-    const scores = {
-      traffic: data.traffic?.score || 0,
-      competition: data.competition?.score || 0,
-      sales: data.sales?.score || 0,
-      growth: data.growth?.score || 0,
-    };
-    return Math.round((scores.traffic + scores.competition + scores.sales + scores.growth) / 4);
-  };
+  // 종합 점수: 창업기상도 API의 detailList[0].avgScore를 직접 사용
+  // growth.score에 detailList[0].avgScore가 저장되어 있음
+  const totalScore = data.growth?.score || 0;
 
-  const totalScore = calculateScore();
-
-  // 점수에 따른 등급
+  // 점수에 따른 등급 및 설명 (창업기상도 기준)
   const getGrade = (score: number) => {
-    if (score >= 80) return { grade: "A", color: "text-green-600", bg: "bg-green-100" };
-    if (score >= 60) return { grade: "B", color: "text-blue-600", bg: "bg-blue-100" };
-    if (score >= 40) return { grade: "C", color: "text-yellow-600", bg: "bg-yellow-100" };
-    return { grade: "D", color: "text-red-600", bg: "bg-red-100" };
+    if (score >= 81) {
+      return { 
+        grade: "A", 
+        color: "text-blue-600", 
+        bg: "bg-blue-100",
+        label: "양호",
+        description: "지역/업종의 성장률, 이용비중, 운영기간 등이 최상위 수준으로 창업 유망"
+      };
+    }
+    if (score >= 61) {
+      return { 
+        grade: "B", 
+        color: "text-green-600", 
+        bg: "bg-green-100",
+        label: "보통",
+        description: "지역/업종의 성장률, 이용비중, 운영기간 등이 상위 수준으로 창업 고려가능"
+      };
+    }
+    if (score >= 41) {
+      return { 
+        grade: "C", 
+        color: "text-yellow-600", 
+        bg: "bg-yellow-100",
+        label: "조금나쁨",
+        description: "지역/업종의 성장률, 이용비중, 운영기간 등이 중위 수준으로 창업 주의"
+      };
+    }
+    if (score >= 21) {
+      return { 
+        grade: "D", 
+        color: "text-red-600", 
+        bg: "bg-red-100",
+        label: "나쁨",
+        description: "지역/업종의 성장률, 이용비중, 운영기간 등이 하위 수준으로 창업 위험"
+      };
+    }
+    return { 
+      grade: "E", 
+      color: "text-purple-600", 
+      bg: "bg-purple-100",
+      label: "매우나쁨",
+      description: "지역/업종의 성장률, 이용비중, 운영기간 등이 최하위 수준으로 창업 고위험"
+    };
   };
 
   const gradeInfo = getGrade(totalScore);
 
-  // 유동인구 차트 데이터
-  const trafficChartData = {
-    labels: ['10대', '20대', '30대', '40대', '50대', '60대+'],
+  // 주중/주말 차트 데이터
+  const weekdayWeekendData = {
+    labels: ['주중', '주말'],
     datasets: [
       {
-        label: '남성',
-        data: data.traffic?.ageGender?.male || [15, 25, 20, 18, 12, 10],
-        backgroundColor: 'rgba(59, 130, 246, 0.8)',
+        data: [
+          data.traffic?.weekday || 79.3,
+          data.traffic?.weekend || 20.7,
+        ],
+        backgroundColor: [
+          'rgba(236, 72, 153, 0.8)', // 주중: 핑크/레드
+          'rgba(59, 130, 246, 0.8)', // 주말: 블루
+        ],
       },
+    ],
+  };
+
+  // 요일별 데이터
+  const weekdayData = data.traffic?.weekdayData || {};
+  const weekdayListData = {
+    labels: ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일'],
+    datasets: [
       {
-        label: '여성',
-        data: data.traffic?.ageGender?.female || [12, 28, 22, 20, 10, 8],
-        backgroundColor: 'rgba(236, 72, 153, 0.8)',
+        label: '요일별 유동인구 비율',
+        data: [
+          weekdayData.mon || 15.9,
+          weekdayData.tues || 16.4,
+          weekdayData.wed || 16.2,
+          weekdayData.thur || 16.3,
+          weekdayData.fri || 14.5,
+          weekdayData.sat || 11.1,
+          weekdayData.sun || 9.5,
+        ],
+        backgroundColor: 'rgba(99, 102, 241, 0.6)',
       },
     ],
   };
 
   // 시간대별 유동인구
   const timeTrafficData = {
-    labels: ['06-09', '09-12', '12-15', '15-18', '18-21', '21-24'],
+    labels: ['05~09', '09~12', '12~14', '14~18', '18~23', '23~05'],
     datasets: [
       {
-        label: '유동인구',
-        data: data.traffic?.timeSlot || [30, 50, 80, 70, 90, 60],
+        label: '유동인구 비율 (%)',
+        data: data.traffic?.timeSlot || [15.7, 18.4, 11.6, 23.7, 23.1, 7.4],
         borderColor: 'rgb(99, 102, 241)',
         backgroundColor: 'rgba(99, 102, 241, 0.1)',
         tension: 0.4,
@@ -68,20 +119,6 @@ export default function AnalysisResult({ data, industry }: AnalysisResultProps) 
     ],
   };
 
-  // 경쟁 현황 차트
-  const competitionData = {
-    labels: ['해당 업종', '유사 업종', '기타'],
-    datasets: [
-      {
-        data: data.competition?.distribution || [35, 45, 20],
-        backgroundColor: [
-          'rgba(239, 68, 68, 0.8)',
-          'rgba(251, 146, 60, 0.8)',
-          'rgba(156, 163, 175, 0.8)',
-        ],
-      },
-    ],
-  };
 
   return (
     <div className="space-y-6">
@@ -105,12 +142,13 @@ export default function AnalysisResult({ data, industry }: AnalysisResultProps) 
           </div>
         </div>
         <div className="mt-4 pt-4 border-t border-white/20">
-          <p className="text-sm opacity-90">
-            {totalScore >= 80 && "✨ 매우 우수한 상권입니다. 적극 추천합니다!"}
-            {totalScore >= 60 && totalScore < 80 && "👍 양호한 상권입니다. 충분히 고려할 만합니다."}
-            {totalScore >= 40 && totalScore < 60 && "⚠️ 보통 수준의 상권입니다. 신중한 검토가 필요합니다."}
-            {totalScore < 40 && "❌ 창업에 어려움이 예상됩니다. 다른 지역을 고려해보세요."}
-          </p>
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">{totalScore >= 81 ? "😊" : totalScore >= 61 ? "🙂" : totalScore >= 41 ? "😐" : totalScore >= 21 ? "😟" : "😰"}</span>
+            <div>
+              <p className="text-sm font-semibold opacity-95 mb-1">{gradeInfo.label}</p>
+              <p className="text-sm opacity-90">{gradeInfo.description}</p>
+            </div>
+          </div>
         </div>
       </motion.div>
 
@@ -135,35 +173,90 @@ export default function AnalysisResult({ data, industry }: AnalysisResultProps) 
           </div>
         </div>
 
-        {/* 연령대별 차트 */}
+        {/* 주중/주말 및 요일별 차트 */}
         <div className="mb-6">
-          <p className="text-sm font-semibold text-gray-700 mb-3">연령대별 성별 분포</p>
-          <Bar
-            data={trafficChartData}
-            options={{
-              responsive: true,
-              plugins: {
-                legend: { position: 'top' },
-              },
-              scales: {
-                y: { beginAtZero: true },
-              },
-            }}
-          />
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* 주중/주말 차트 */}
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-3">주중/주말 분포</p>
+              <Bar
+                data={weekdayWeekendData}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                      callbacks: {
+                        label: (context: any) => `${context.parsed.y.toFixed(1)}%`,
+                      },
+                    },
+                  },
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      max: 100,
+                      ticks: {
+                        callback: (value: any) => `${value}%`,
+                      },
+                    },
+                  },
+                }}
+              />
+            </div>
+
+            {/* 요일별 리스트 */}
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-3">요일별 분포</p>
+              <div className="space-y-2">
+                {weekdayListData.labels.map((day, index) => {
+                  const value = weekdayListData.datasets[0].data[index];
+                  const isMax = value === Math.max(...weekdayListData.datasets[0].data);
+                  return (
+                    <div key={day} className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">{day}</span>
+                      <span className={`text-sm font-semibold ${isMax ? 'text-red-600' : 'text-gray-800'}`}>
+                        {value.toFixed(1)}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* 시간대별 차트 */}
         <div>
           <p className="text-sm font-semibold text-gray-700 mb-3">시간대별 유동인구</p>
-          <Line
-            data={timeTrafficData}
+          <Bar
+            data={{
+              ...timeTrafficData,
+              datasets: [
+                {
+                  ...timeTrafficData.datasets[0],
+                  backgroundColor: 'rgba(99, 102, 241, 0.8)', // 더 진한 색상
+                  borderColor: 'rgb(99, 102, 241)',
+                },
+              ],
+            }}
             options={{
               responsive: true,
               plugins: {
                 legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: (context: any) => `${context.parsed.y.toFixed(1)}%`,
+                  },
+                },
               },
               scales: {
-                y: { beginAtZero: true },
+                y: {
+                  beginAtZero: true,
+                  max: 70, // 최대값을 70%로 설정
+                  ticks: {
+                    callback: (value: any) => `${value}%`,
+                  },
+                },
               },
             }}
           />
@@ -176,44 +269,11 @@ export default function AnalysisResult({ data, industry }: AnalysisResultProps) 
           <FaStore className="text-green-500 mr-2" />
           경쟁 현황
         </h3>
-        <div className="grid md:grid-cols-2 gap-6">
-          <div>
-            <div className="mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-700">동일 업종 점포 수</span>
-                <span className="text-2xl font-bold text-green-600">
-                  {data.competition?.sameIndustry || 23}개
-                </span>
-              </div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-700">반경 500m 내</span>
-                <span className="text-lg font-semibold text-gray-800">
-                  {data.competition?.nearby || 8}개
-                </span>
-              </div>
-            </div>
-            <div className="bg-yellow-50 border-l-4 border-yellow-500 p-3 rounded">
-              <p className="text-sm text-yellow-800">
-                {data.competition?.nearby > 10
-                  ? "⚠️ 경쟁이 매우 치열합니다"
-                  : data.competition?.nearby > 5
-                  ? "⚡ 적정 수준의 경쟁입니다"
-                  : "✅ 경쟁이 적은 편입니다"}
-              </p>
-            </div>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-700 mb-3 text-center">업종 분포</p>
-            <Doughnut
-              data={competitionData}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: { position: 'bottom' },
-                },
-              }}
-            />
-          </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-700 text-lg">동일 업종 점포 수</span>
+          <span className="text-3xl font-bold text-green-600">
+            {data.competition?.sameIndustry || 23}개
+          </span>
         </div>
       </div>
 
@@ -223,7 +283,7 @@ export default function AnalysisResult({ data, industry }: AnalysisResultProps) 
           <FaMoneyBillWave className="text-yellow-500 mr-2" />
           매출 정보
         </h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl p-4">
             <p className="text-sm text-gray-600 mb-1">월평균 매출</p>
             <p className="text-2xl font-bold text-gray-800">
@@ -231,27 +291,16 @@ export default function AnalysisResult({ data, industry }: AnalysisResultProps) 
             </p>
           </div>
           <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-4">
-            <p className="text-sm text-gray-600 mb-1">분기 성장률</p>
-            <p className="text-2xl font-bold text-green-600">
-              +{data.sales?.growth || "12.5"}%
+            <p className="text-sm text-gray-600 mb-1">전월 대비</p>
+            <p className={`text-2xl font-bold ${(data.sales?.prevMonRate || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {(data.sales?.prevMonRate || 0) >= 0 ? '+' : ''}{data.sales?.prevMonRate?.toFixed(1) || "0.0"}%
             </p>
           </div>
-        </div>
-        <div className="mt-4 pt-4 border-t">
-          <p className="text-sm text-gray-600 mb-2">업종별 비교</p>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-700">상위 25%</span>
-              <span className="text-sm font-semibold">4,500만원</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-700">평균</span>
-              <span className="text-sm font-semibold">3,200만원</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-700">하위 25%</span>
-              <span className="text-sm font-semibold">2,100만원</span>
-            </div>
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4">
+            <p className="text-sm text-gray-600 mb-1">전년 동월 대비</p>
+            <p className={`text-2xl font-bold ${(data.sales?.prevYearRate || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {(data.sales?.prevYearRate || 0) >= 0 ? '+' : ''}{data.sales?.prevYearRate?.toFixed(1) || "0.0"}%
+            </p>
           </div>
         </div>
       </div>

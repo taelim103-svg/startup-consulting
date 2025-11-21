@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaMapMarkerAlt } from "react-icons/fa";
 
 interface MapViewProps {
@@ -8,17 +8,85 @@ interface MapViewProps {
   address: string;
 }
 
+declare global {
+  interface Window {
+    kakao: any;
+  }
+}
+
 export default function MapView({ location, address }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const mapInstanceRef = useRef<any>(null);
 
+  // 카카오 지도 SDK 로드
   useEffect(() => {
-    // 실제 프로덕션에서는 Naver Map API 또는 Kakao Map API를 사용
-    // 여기서는 데모용 정적 지도 표시
-    if (mapRef.current && location) {
-      // 지도 초기화 로직
-      console.log("지도 초기화:", location);
+    const script = document.createElement("script");
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_JS_KEY}&autoload=false`;
+    script.async = true;
+    
+    script.onload = () => {
+      if (window.kakao && window.kakao.maps) {
+        window.kakao.maps.load(() => {
+          setMapLoaded(true);
+        });
+      }
+    };
+
+    document.head.appendChild(script);
+
+    return () => {
+      // 컴포넌트 언마운트 시 스크립트 제거
+      const existingScript = document.querySelector(`script[src*="dapi.kakao.com"]`);
+      if (existingScript) {
+        document.head.removeChild(existingScript);
+      }
+    };
+  }, []);
+
+  // 지도 초기화 및 마커 표시
+  useEffect(() => {
+    if (!mapLoaded || !mapRef.current || !location) return;
+
+    const { kakao } = window;
+    if (!kakao || !kakao.maps) return;
+
+    // 기존 지도 인스턴스가 있으면 제거
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current = null;
     }
-  }, [location]);
+
+    // 지도 생성
+    const mapOption = {
+      center: new kakao.maps.LatLng(location.lat, location.lng),
+      level: 3, // 지도 확대 레벨 (1-14, 숫자가 작을수록 확대)
+    };
+
+    const map = new kakao.maps.Map(mapRef.current, mapOption);
+    mapInstanceRef.current = map;
+
+    // 마커 생성
+    const markerPosition = new kakao.maps.LatLng(location.lat, location.lng);
+    const marker = new kakao.maps.Marker({
+      position: markerPosition,
+    });
+
+    // 마커를 지도에 표시
+    marker.setMap(map);
+
+    // 인포윈도우 생성 (선택사항)
+    const infowindow = new kakao.maps.InfoWindow({
+      content: `<div style="padding:5px;font-size:12px;">${address}</div>`,
+    });
+    infowindow.open(map, marker);
+
+    // 마커 클릭 시 인포윈도우 토글
+    kakao.maps.event.addListener(marker, "click", () => {
+      infowindow.open(map, marker);
+    });
+
+    console.log("카카오 지도 초기화 완료:", location);
+  }, [mapLoaded, location, address]);
 
   return (
     <div className="h-full min-h-[500px] relative">
